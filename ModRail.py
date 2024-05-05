@@ -20,7 +20,7 @@ ban_votes = {}
 # Load config and set variables
 def load_config():
     config = configparser.ConfigParser()
-    config.read("config.ini")
+    config.read("config.cfg")
     return config
 
 # Load configuration

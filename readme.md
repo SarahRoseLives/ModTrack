@@ -7,7 +7,14 @@ ModTrack is an OpenTTD moderation bot designed to keep your server on track by p
 - **Vote kicking and banning:** Users can initiate votes to kick or ban other players from the server.
 - **Word list filtering:** Messages containing words stored in predefined word lists can trigger warnings or actions.
 - **Logging:** Keep track of bot activities and user interactions for moderation purposes.
+- **Rate Limiting:** Kick users for spamming the server's chat. 
 - **Configuration:** Easily configurable using a straightforward INI file format.
+
+## Commands
+
+- `!vote kick user #1` - Type full username as seen on the server
+- `!vote ban user #4` - Type full username as seen on the server
+- `!admin enable/disable` - Enables or Disables bot in-game, only responds to admin ip
 
 ## Configuration
 

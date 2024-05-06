@@ -3,6 +3,7 @@ import re
 import configparser
 import os
 import datetime
+from collections import deque
 
 from src.main import Admin
 from src.enums import PacketType, Actions, ChatDestTypes, AdminUpdateType
@@ -14,9 +15,14 @@ botname = "[ModRail]"
 # Dictionary to store counts of true messages for each ID
 id_counts = {}
 
-# Dictionary to store count of kick and ban votes
+# Dictionary to store count of kick/ban votes
 kick_votes = {}
 ban_votes = {}
+
+# Dictionary to store count of rate limit violations
+rate_violations = {}
+# Dictionary to store message timestamps
+message_timestamps = {}
 
 # Load config and set variables
 def load_config():
@@ -34,16 +40,72 @@ adminpass = config.get("ModRail", "adminpass")
 welcome_message = config.get("ModRail", "welcome")
 prefix = config.get("ModRail", "prefix")
 logstate = config.get("ModRail", "logging")
+botadminip = config.get("ModRail", "botadminip")
+ratelimiting = config.get("ModRail", "ratelimiting")
+ratelimit_messages = int(config.get("ModRail", "ratelimit_messages"))
+ratelimit_seconds = int(config.get("ModRail", "ratelimit_seconds"))
 
 # Warning messages
 warning1 = config.get("Warnings", "warning1")
 warning2 = config.get("Warnings", "warning2")
 votedwarning = config.get("Warnings", "votedwarning")
+ratelimit_warning = config.get("Warnings", "ratelimit_warning")
 
 # Votes
 
 votestokick = config.get("Votes", "votestokick")
 votestoban = config.get("Votes", "votestoban")
+
+
+# Check if user requesting admin command is connecting from admin ip in config
+def isadmin(admin, id):
+    ip = getclient_info(admin, identifier=id)['ip']
+    if ip == botadminip:
+        return True
+    else:
+        return False
+
+# Rate limit chat messages and kick when violations add up
+def rate_limit(admin, id):
+    #   global rate_violations
+    #global message_timestamps
+
+    # Check if rate limiting is enabled
+    if ratelimiting != "enabled":
+        return
+
+    # Get the current timestamp
+    current_time = time.time()
+
+    # Check if the id exists in the dictionary
+    if id in rate_violations:
+        # Increment the count for the id
+        rate_violations[id] += 1
+        # Check if the count for the id is equal to ratelimit_messages
+        if rate_violations[id] >= ratelimit_messages:
+            # Check if enough time has passed since the earliest message within the time window
+            earliest_timestamp = message_timestamps[id][0]
+            # Check if the count for the id is greater than or equal to half of ratelimit_messages
+            if rate_violations[id] >= ratelimit_messages // 2:
+                admin.send_private(id=id, message=ratelimit_warning)
+                action_log(admin, message=ratelimit_warning, id=str(255)) #255 specifies server/bot message
+                time.sleep(3)  # Give them time to see the warning before kicking
+            if current_time - earliest_timestamp <= ratelimit_seconds:
+                admin.send_rcon(f"kick {id}")
+                action_log(admin, message=f'Kicked {id} for rate limit violation', id=str(255)) #255 specifies server/bot message
+            # Reset the count for the id if enough time has passed since the earliest message
+            elif current_time - earliest_timestamp > ratelimit_seconds:
+                rate_violations[id] = 0
+                message_timestamps[id].clear()
+    else:
+        # Initialize the count for the id if it doesn't exist
+        rate_violations[id] = 1
+        # Initialize the deque for the id to store timestamps
+        message_timestamps[id] = deque(maxlen=ratelimit_messages)
+
+
+    # Add the current timestamp to the deque
+    message_timestamps[id].append(current_time)
 
 
 # If enabled, log chat messages and bot actions to file
@@ -127,39 +189,52 @@ def getclient_info(admin, identifier):
 # Dissect recieved commands and execute them
 def check_commands(admin, message, id):
     command = re.sub('^!', '', message)
-    if command.startswith('vote'):
-        kickorban = command.split()[1]
-        offending_username = ' '.join(command.split()[2:]).lower()
-        offending_id = getclient_info(admin, offending_username)['id']
+    try:
+        if command.startswith('vote'):
+            kickorban = command.split()[1]
+            offending_username = ' '.join(command.split()[2:]).lower()
+            offending_id = getclient_info(admin, offending_username)['id']
 
-        if kickorban == 'kick':
-            votes = kick_votes
-        elif kickorban == 'ban':
-            votes = ban_votes
-        else:
-            # Handle invalid vote type
-            return
-
-        if offending_username in votes:
-            if id not in votes[offending_username]['voters']:
-                votes[offending_username]['voters'].append(id)
+            if kickorban == 'kick':
+                votes = kick_votes
+            elif kickorban == 'ban':
+                votes = ban_votes
             else:
-                admin.send_private(id=id, message=votedwarning)
-                action_log(admin, message=votedwarning, id=id)
+                # Handle invalid vote type
                 return
-        else:
-            votes[offending_username] = {'voters': [id], 'offending_id': offending_id, 'count': 0}
 
-        if len(votes[offending_username]['voters']) >= int(votestokick) and kickorban == 'kick':
-            admin.send_rcon(f'kick {votes[offending_username]["offending_id"]}')
-            admin.send_global(f'{offending_username} has been vote kicked!')
-            action_log(f'{offending_username} has been vote kicked!')
-            del votes[offending_username]
-        elif len(votes[offending_username]['voters']) >= int(votestoban) and kickorban == 'ban':
-            admin.send_rcon(f'ban {votes[offending_username]["offending_id"]}')
-            admin.send_global(f'{offending_username} has been vote banned!')
-            action_log(f'{offending_username} has been vote banned!')
-            del votes[offending_username]
+            if offending_username in votes:
+                if id not in votes[offending_username]['voters']:
+                    votes[offending_username]['voters'].append(id)
+                else:
+                    admin.send_private(id=id, messagef=votedwarning)
+                    action_log(admin, message=votedwarning, id=id)
+                    return
+            else:
+                votes[offending_username] = {'voters': [id], 'offending_id': offending_id, 'count': 0}
+
+            if len(votes[offending_username]['voters']) >= int(votestokick) and kickorban == 'kick':
+                admin.send_rcon(f'kick {votes[offending_username]["offending_id"]}')
+                admin.send_global(f'{offending_username} has been vote kicked!')
+                action_log(f'{offending_username} has been vote kicked!')
+                del votes[offending_username]
+            elif len(votes[offending_username]['voters']) >= int(votestoban) and kickorban == 'ban':
+                admin.send_rcon(f'ban {votes[offending_username]["offending_id"]}')
+                admin.send_global(f'{offending_username} has been vote banned!')
+                action_log(f'{offending_username} has been vote banned!')
+                del votes[offending_username]
+    except:
+
+        pass # invalid vote format
+    if command.startswith('admin'):
+        if isadmin(admin, id):
+            if "enable" in command:
+                print('enable bot')
+                #add code to enable
+            if "disable" in command:
+                print('disable bot')
+                #add code to disable
+
 
 
 # Create an instance of the Admin class and connect to the server
@@ -177,9 +252,10 @@ with Admin(ip, int(port), "ModRail 0.1", adminpass) as admin:
         packets = admin.recv()
         for packet in packets:
             if isinstance(packet, ChatPacket) and packet.desttype == ChatDestTypes.BROADCAST:
-                print(f"{packet.message} (sent by {packet.id})")
+                #print(f"{packet.message} (sent by {packet.id})")
                 action_log(admin, message=packet.message, id=packet.id)
                 check_message_in_wordlists(message=packet.message, id=packet.id, wordlists=wordlists)
+                rate_limit(admin, id=packet.id)
                 if packet.message.startswith(prefix):
                     check_commands(admin, packet.message, packet.id)
 

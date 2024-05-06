@@ -8,7 +8,7 @@ ModTrack is an OpenTTD moderation bot designed to keep your server on track by p
 - **Word list filtering:** Messages containing words stored in predefined word lists can trigger warnings or actions.
 - **Logging:** Keep track of bot activities and user interactions for moderation purposes.
 - **Rate Limiting:** Kick users for spamming the server's chat. 
-- **Configuration:** Easily configurable using a straightforward vfg file.
+- **Configuration:** Easily configurable using a straightforward cfg file.
 
 ## Commands
 

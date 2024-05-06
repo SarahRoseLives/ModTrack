@@ -87,7 +87,7 @@ def rate_limit(admin, id):
             earliest_timestamp = message_timestamps[id][0]
             # Check if the count for the id is greater than or equal to half of ratelimit_messages
             if rate_violations[id] >= ratelimit_messages // 2:
-                admin.send_private(id=id, message=ratelimit_warning)
+                admin.send_private(id=id, message=f'{botname} {ratelimit_warning}')
                 action_log(admin, message=ratelimit_warning, id=str(255)) #255 specifies server/bot message
                 time.sleep(3)  # Give them time to see the warning before kicking
             if current_time - earliest_timestamp <= ratelimit_seconds:
@@ -207,7 +207,7 @@ def check_commands(admin, message, id):
                 if id not in votes[offending_username]['voters']:
                     votes[offending_username]['voters'].append(id)
                 else:
-                    admin.send_private(id=id, messagef=votedwarning)
+                    admin.send_private(id=id, message=f'{botname} {votedwarning}')
                     action_log(admin, message=votedwarning, id=id)
                     return
             else:
@@ -215,12 +215,12 @@ def check_commands(admin, message, id):
 
             if len(votes[offending_username]['voters']) >= int(votestokick) and kickorban == 'kick':
                 admin.send_rcon(f'kick {votes[offending_username]["offending_id"]}')
-                admin.send_global(f'{offending_username} has been vote kicked!')
+                admin.send_global(f'{botname} {offending_username} has been vote kicked!')
                 action_log(f'{offending_username} has been vote kicked!')
                 del votes[offending_username]
             elif len(votes[offending_username]['voters']) >= int(votestoban) and kickorban == 'ban':
                 admin.send_rcon(f'ban {votes[offending_username]["offending_id"]}')
-                admin.send_global(f'{offending_username} has been vote banned!')
+                admin.send_global(f'{botname} {offending_username} has been vote banned!')
                 action_log(f'{offending_username} has been vote banned!')
                 del votes[offending_username]
     except:
@@ -234,12 +234,14 @@ def check_commands(admin, message, id):
             if "disable" in command:
                 print('disable bot')
                 #add code to disable
+    if command.startswith('help'):
+        admin.send_private(message="Place holder help message.", id=id)
 
 
 
 # Create an instance of the Admin class and connect to the server
 with Admin(ip, int(port), "ModRail 0.1", adminpass) as admin:
-    admin.send_global(welcome_message)
+    admin.send_global(f'{botname} {welcome_message}')
     action_log(admin, message=welcome_message, id=str(255))
     # Subscribe to chat messages
     admin.send_subscribe(AdminUpdateType.CHAT)

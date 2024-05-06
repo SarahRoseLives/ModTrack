@@ -6,11 +6,12 @@ ModTrack is an OpenTTD moderation bot designed to keep your server on track by p
 
 - **Vote kicking and banning:** Users can initiate votes to kick or ban other players from the server.
 - **Word list filtering:** Messages containing words stored in predefined word lists can trigger warnings or actions.
+- **Logging:** Keep track of bot activities and user interactions for moderation purposes.
 - **Configuration:** Easily configurable using a straightforward INI file format.
 
 ## Configuration
 
-The `config.ini` file contains various sections and keys to configure ModTrack.
+The `config.cfg` file contains various sections and keys to configure ModTrack.
 
 ### ModRail Section
 
@@ -19,6 +20,7 @@ The `config.ini` file contains various sections and keys to configure ModTrack.
 - `port`: Port number for the OpenTTD admin interface.
 - `welcome`: Welcome message displayed when the bot starts.
 - `prefix`: Prefix for bot commands in chat (e.g., `!`).
+- `logging`: Enable/disable logging (e.g., `enabled` or `disabled`).
 
 ### Wordlists Section
 
@@ -33,6 +35,7 @@ Each key in this section represents a word list, and its value determines if the
 
 - `warning1`: First warning message displayed to users for violating word list rules.
 - `warning2`: Final warning message before potential kick for repeated violations.
+- `votedwarning`: Message displayed when a user has already voted against another user.
 
 ### Votes Section
 

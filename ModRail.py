@@ -2,6 +2,7 @@ import time
 import re
 import configparser
 import os
+import datetime
 
 from src.main import Admin
 from src.enums import PacketType, Actions, ChatDestTypes, AdminUpdateType
@@ -32,15 +33,38 @@ ip = config.get("ModRail", "server")
 adminpass = config.get("ModRail", "adminpass")
 welcome_message = config.get("ModRail", "welcome")
 prefix = config.get("ModRail", "prefix")
+logstate = config.get("ModRail", "logging")
 
 # Warning messages
 warning1 = config.get("Warnings", "warning1")
 warning2 = config.get("Warnings", "warning2")
+votedwarning = config.get("Warnings", "votedwarning")
 
 # Votes
 
 votestokick = config.get("Votes", "votestokick")
 votestoban = config.get("Votes", "votestoban")
+
+
+# If enabled, log chat messages and bot actions to file
+def action_log(admin, message, id):
+    if logstate == "disabled":
+        return
+
+    if logstate == "enabled":
+        log_filename = "log.txt"
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        name = getclient_info(admin, identifier=id)['name']
+        log_entry = f"{timestamp} - {id}:{name}: {message}\n"
+        print(log_entry)
+
+        # Check if log file exists
+        if not os.path.exists(log_filename):
+            with open(log_filename, "w") as logfile:
+                logfile.write(log_entry)
+        else:
+            with open(log_filename, "a") as logfile:
+                logfile.write(log_entry)
 
 
 
@@ -93,7 +117,7 @@ def getclient_info(admin, identifier):
                     client_ip = match.group(4)
 
                     # Check if the identifier matches any client information
-                    if identifier == client_id or identifier == client_name or identifier == client_company or identifier == client_ip:
+                    if str(identifier) == client_id or identifier == client_name or identifier == client_company or identifier == client_ip:
                         return {'id': client_id, 'name': client_name, 'company': client_company, 'ip': client_ip}
 
 
@@ -119,7 +143,8 @@ def check_commands(admin, message, id):
             if id not in votes[offending_username]['voters']:
                 votes[offending_username]['voters'].append(id)
             else:
-                admin.send_private(id=id, message="You've already voted against this user.")
+                admin.send_private(id=id, message=votedwarning)
+                action_log(admin, message=votedwarning, id=id)
                 return
         else:
             votes[offending_username] = {'voters': [id], 'offending_id': offending_id, 'count': 0}
@@ -127,16 +152,19 @@ def check_commands(admin, message, id):
         if len(votes[offending_username]['voters']) >= int(votestokick) and kickorban == 'kick':
             admin.send_rcon(f'kick {votes[offending_username]["offending_id"]}')
             admin.send_global(f'{offending_username} has been vote kicked!')
+            action_log(f'{offending_username} has been vote kicked!')
             del votes[offending_username]
         elif len(votes[offending_username]['voters']) >= int(votestoban) and kickorban == 'ban':
             admin.send_rcon(f'ban {votes[offending_username]["offending_id"]}')
             admin.send_global(f'{offending_username} has been vote banned!')
+            action_log(f'{offending_username} has been vote banned!')
             del votes[offending_username]
 
 
 # Create an instance of the Admin class and connect to the server
 with Admin(ip, int(port), "ModRail 0.1", adminpass) as admin:
     admin.send_global(welcome_message)
+    action_log(admin, message=welcome_message, id=str(255))
     # Subscribe to chat messages
     admin.send_subscribe(AdminUpdateType.CHAT)
 
@@ -149,14 +177,17 @@ with Admin(ip, int(port), "ModRail 0.1", adminpass) as admin:
         for packet in packets:
             if isinstance(packet, ChatPacket) and packet.desttype == ChatDestTypes.BROADCAST:
                 print(f"{packet.message} (sent by {packet.id})")
+                action_log(admin, message=packet.message, id=packet.id)
                 check_message_in_wordlists(message=packet.message, id=packet.id, wordlists=wordlists)
                 if packet.message.startswith(prefix):
                     check_commands(admin, packet.message, packet.id)
 
             if isinstance(packet, RconPacket):
-                print(packet)
+                #print(packet)
+                pass
                 if isinstance(packet, RconEndPacket):
-                    print(packet)
+                    #print(packet)
+                    pass
 
         # Sleep for a short time before checking for new packets
         time.sleep(0.1)

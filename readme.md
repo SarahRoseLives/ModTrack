@@ -28,6 +28,10 @@ The `config.cfg` file contains various sections and keys to configure ModTrack.
 - `welcome`: Welcome message displayed when the bot starts.
 - `prefix`: Prefix for bot commands in chat (e.g., `!`).
 - `logging`: Enable/disable logging (e.g., `enabled` or `disabled`).
+- `botadminip`: IP address of the bot administrator.
+- `ratelimiting`: Enable/disable rate limiting.
+- `ratelimit_messages`: Number of messages triggering rate limiting.
+- `ratelimit_seconds`: Time window for rate limiting in seconds.
 
 ### Wordlists Section
 

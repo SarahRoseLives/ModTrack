@@ -55,7 +55,8 @@ def action_log(admin, message, id):
         log_filename = "log.txt"
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         name = getclient_info(admin, identifier=id)['name']
-        log_entry = f"{timestamp} - {id}:{name}: {message}\n"
+        ip = getclient_info(admin, identifier=id)['ip']
+        log_entry = f"{timestamp} - {id}:{name}:{ip}: {message}\n"
         print(log_entry)
 
         # Check if log file exists
@@ -114,7 +115,7 @@ def getclient_info(admin, identifier):
                     client_id = match.group(1)
                     client_name = match.group(2)
                     client_company = match.group(3)
-                    client_ip = match.group(4)
+                    client_ip = match.group(4).replace(")", "")
 
                     # Check if the identifier matches any client information
                     if str(identifier) == client_id or identifier == client_name or identifier == client_company or identifier == client_ip:

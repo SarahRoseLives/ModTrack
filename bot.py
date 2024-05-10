@@ -1,4 +1,5 @@
 import discord
+from discord import ChannelType
 from discord.ext import commands
 import configparser
 import socket
@@ -21,6 +22,13 @@ config = load_config()
 
 # [Discord] Config
 discordtoken = config.get(section='Discord', option='token')
+bot_id_on_discord = int(config.get(section='Discord', option='bot_id_on_discord'))
+discord_admin_role_id = int(config.get(section='Discord', option='discord_admin_role_id'))
+# Channel declarations
+channel_admin_request = int(config.get(section='Discord', option='channel_admin_request'))
+channel_chat_messages = int(config.get(section='Discord', option='channel_chat_messsages'))
+channel_bot_commands = int(config.get(section='Discord', option='channel_bot_commands'))
+
 
 # Setup Discord bot
 Intents = discord.Intents.default()
@@ -44,13 +52,26 @@ async def udp_rx():
             print("Received:", data.decode())
             # Process received data here
             # For example, you can send a message to Discord based on the received data
-            channel = bot.get_channel(1238233747850133584)
+
             #await channel.send(f"Received UDP data: {data.decode()}")
             print(f'DEBUG: {data.decode()}')
 
             # Identify Rcon Packet and print it to the channel
             if data.decode().startswith('RCON_PACKET'):
+                channel = bot.get_channel(channel_bot_commands)
                 await channel.send(data.decode().replace('RCON_PACKET', ''))
+
+            # Identify Chat Packet and print it to the channel
+            if data.decode().startswith('CHAT_PACKET'):
+                channel = bot.get_channel(channel_chat_messages)
+                await channel.send(data.decode().replace('CHAT_PACKET', ''))
+
+            # Identify Report Packet and print it to the channel
+            if data.decode().startswith('REPORT_PACKET'):
+                channel = bot.get_channel(channel_admin_request)
+                thread = await channel.create_thread(name="example", type=ChannelType.public_thread)
+                await thread.send(data.decode().replace('REPORT_PACKET', f'<@&{discord_admin_role_id}>'))
+
 
 
 
@@ -65,6 +86,13 @@ async def udp_rx():
     finally:
         rxsock.close()
 
+# Function acts like a command decorator to check if the command was sent from the allowed channel
+# @bot.command(name='command_name')
+# @commands.check(is_channel_bot_commands)
+async def is_channel_bot_commands(ctx):
+    return ctx.channel.id == channel_bot_commands
+
+txsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # Starts the Async task for the UDP Receiver
 @bot.event
@@ -73,10 +101,22 @@ async def on_ready():
     # Start the UDP receiver in a separate task
     asyncio.create_task(udp_rx())
 
+
+@bot.event
+async def on_message(message):
+    # Just send all channel_chat_messages to admin port as a chat packet
+    if message.channel.id == channel_chat_messages:
+        # Ensure we don't echo our own bot back
+        if bot_id_on_discord != message.author.id: # If bot id is not the same as message id then we continue
+            txsock.sendto(bytes(str(f"CHAT_PACKET {message.author}: {message.content}").encode('utf-8')), (UDPHOST, TXPORT))
+    # Continue with regular bot commands now
+    await bot.process_commands(message)
+
 # rcon Bot command sends data to the UDP receiver running on admin.py
 @bot.command(name="rcon")
-async def first_slash(ctx, message):
-    txsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+@commands.check(is_channel_bot_commands)
+async def rcon(ctx, message):
+
     txsock.sendto(bytes(str(f'rcon {message}').encode('utf-8')), (UDPHOST, TXPORT))
     #await ctx.send("You executed the slash command!")
 

@@ -1,4 +1,3 @@
+/old/
 /.venv/
-/send.py
-/log.txt
-!/.gitignore
+/config.txt

@@ -1,57 +1,19 @@
 # ModTrack - OpenTTD Moderation Bot
 
-ModTrack is an OpenTTD moderation bot designed to keep your server on track by providing features such as vote kicking, banning, and filtering messages based on predefined word lists. It is configurable via a simple INI file.
+ModTrack is an OpenTTD moderation bot designed to keep your server on track ~~by providing features such as vote kicking, banning, and filtering messages based on predefined word lists. It is configurable via a simple INI file.~~
 
-## Features
+## What Happened to The Code?
 
-- **Vote kicking and banning:** Users can initiate votes to kick or ban other players from the server.
-- **Word list filtering:** Messages containing words stored in predefined word lists can trigger warnings or actions.
-- **Logging:** Keep track of bot activities and user interactions for moderation purposes.
-- **Rate Limiting:** Kick users for spamming the server's chat. 
-- **Configuration:** Easily configurable using a straightforward cfg file.
+I have decided to take a new approch to this, I scrubbed the old code and am now attempting to write a Discord / OpenTTD Administration bot to manage your servers, chat, abuse reports and much more.
 
-## Commands
+Due to issues with threading and concurrency as well as the additional complications of trying to mix pyOpenTTDAdmin with the Discord.py library (and my lack of skill) Cross-Communication between the discord and admin port sections of the code will be facilitated over a set of UDP ports on the local host.
 
-- `!vote kick user #1` - Type full username as seen on the server
-- `!vote ban user #4` - Type full username as seen on the server
-- `!admin enable/disable` - Enables or Disables bot in-game, only responds to admin ip
+This allows me to send command data back and forth on the loopback address and enables us to both continuously receieve packets and also send them on the fly. We'll use a thread in admin.py and async in bot.py due to Discord.py's already async nature.
 
-## Configuration
+## Currently Implemented but lacking refinement
 
-The `config.cfg` file contains various sections and keys to configure ModTrack.
-
-### ModRail Section
-
-- `server`: IP address of the OpenTTD server.
-- `adminpass`: Admin password for connecting to the OpenTTD server.
-- `port`: Port number for the OpenTTD admin interface.
-- `welcome`: Welcome message displayed when the bot starts.
-- `prefix`: Prefix for bot commands in chat (e.g., `!`).
-- `logging`: Enable/disable logging (e.g., `enabled` or `disabled`).
-- `botadminip`: IP address of the bot administrator.
-- `ratelimiting`: Enable/disable rate limiting.
-- `ratelimit_messages`: Number of messages triggering rate limiting.
-- `ratelimit_seconds`: Time window for rate limiting in seconds.
-
-### Wordlists Section
-
-Each key in this section represents a word list, and its value determines if the list is enabled or disabled.
-
-- `profanity`: Enable/disable the profanity word list.
-- `politics`: Enable/disable the politics word list.
-- `slurs`: Enable/disable the slurs word list.
-- `custom`: Enable/disable a custom word list.
-
-### Warnings Section
-
-- `warning1`: First warning message displayed to users for violating word list rules.
-- `warning2`: Final warning message before potential kick for repeated violations.
-- `votedwarning`: Message displayed when a user has already voted against another user.
-
-### Votes Section
-
-- `votestokick`: Number of votes required to initiate a kick.
-- `votestoban`: Number of votes required to initiate a ban.
+- Rcon Packets directly available in discord with !rcon 'rcon_command'
+- That's it lol, I spent 12+ hours figuring out how to get these libraries to talk together before settling on the UDP method. I'll be adding more very soon.
 
 ## Dependencies
 

@@ -1,17 +1,40 @@
-# DON'T RUN THIS AS I HAVEN'T TESTED IT, RUN BOT.PY AND ADMIN.PY SEPERATELY IF YOU WANT TO PLAY WITH MY BAD INCOMPLETE CODE
+# this is currently not tested and incomplete
+# the config file should still be integrated
 
-import threading
-import subprocess
+from __future__ import annotations
 
-def run_script(script_name):
-    subprocess.run(["python", script_name])
+import asyncio
+import discord
 
-if __name__ == "__main__":
-    bot_thread = threading.Thread(target=run_script, args=("bot.py",))
-    admin_thread = threading.Thread(target=run_script, args=("admin.py",))
+from discord.ext import commands
 
-    bot_thread.start()
-    admin_thread.start()
+# missing contents
+# DISCORD_API_TOKEN
 
-    bot_thread.join()
-    admin_thread.join()
+if not DISCORD_API_TOKEN:
+    raise ValueError("DISCORD_API_TOKEN is not set")
+
+async def main():
+    intents = discord.Intents().none()
+    intents.message_content = True
+    bot = commands.Bot(
+        command_prefix = "/",
+        intents = intents
+    )
+
+    @bot.event
+    async def on_ready():
+        print(f'{bot.user} has connected to Discord!',f'{bot.user} is connected to the following guild: ', sep='\n')
+        await bot.change_presence(status=discord.Status.online, activity=discord.Activity(name='generating AI replies'))
+        for guild in bot.guilds:
+            print(f'{guild.name} (id: {guild.id})')
+
+    # command to test if bot is active and responding
+    @bot.command()
+    async def ping(ctx: commands.Context):
+        await ctx.send("ping")
+
+    await bot.load_extension("cogs.openttd")
+    await bot.start(DISCORD_API_TOKEN)
+
+asyncio.run(main())

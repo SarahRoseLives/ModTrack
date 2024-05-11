@@ -18,6 +18,7 @@ class OpenTTD(commands.Cog):
         self.webhook = discord.Webhook.from_url(WEBHOOK_URL, client = bot)
 
         self.openttd.send_subscribe(AdminUpdateType.CHAT)
+        self.openttd.send_subscribe(AdminUpdateType.CONSOLE)
 
         self.admin_channel = bot.get_channel(ADMIN_CHANNEL_ID)
 
@@ -32,34 +33,13 @@ class OpenTTD(commands.Cog):
             # do something with the packet
             if isinstance(packet, openttdpacket.ChatPacket):
                 print(f"Chat message from {packet.id}: {packet.message}")
-                await self.openttd_chat_message(packet)
+                await self.openttd_chat_packet(packet)
             
             if isinstance(packet, openttdpacket.ConsolePacket):
-                if packet.origin == "net":
-                    print(packet.message)
-                    matched = re.fullmatch(r"\[server\] Client #(\d+) \([\d\.]+\) joined as (.+)", packet.message)
-                    if matched is not None:
-                        print("player joined")
-                        # player joined
-                        self.users[int(matched.group(1))] = matched.group(2)
-                        await self.webhook.send(f"{matched.group(2)} joined the server.", username = "Server")
-                        
-                        return
-                    
-                    matched = re.fullmatch(r"\[server\] Client #(\d+) closed connection", packet.message)
-                    if matched is not None:
-                        print("player left")
-                        # player left
-                        try:
-                            name = self.users.pop(int(matched.group(1)))
-                            await self.webhook.send(f"{name} left the server.", username = "Server")
-
-                        except KeyError:
-                            print("player not found")
-                        
-                        return
+                print(f"Console message: {packet.message}")
+                await self.openttd_console_packet(packet)
     
-    async def openttd_chat_message(self, packet: openttdpacket.ChatPacket):
+    async def openttd_chat_packet(self, packet: openttdpacket.ChatPacket):
         # These are bot commands from OpenTTD players coming from the admin port.
         if packet.message.startswith('!'):
             # Report/admin command, sends user report over to bot.py for processing on discord.
@@ -76,7 +56,33 @@ class OpenTTD(commands.Cog):
         # send message to channel
         # to create a webhook, go to the channel -> settings -> integrations -> webhooks | add webhook
         # webhooks allow you to send messages to a channel from a user with custom name and avatar
+        # enhancement: use the color of the company to customize the avatar
         await self.webhook.send(packet.message, username = self.users.get(packet.id, "Unknown"))
+    
+    async def openttd_console_packet(self, packet: openttdpacket.ConsolePacket):
+        if packet.origin == "net":
+            print(packet.message)
+            matched = re.fullmatch(r"\[server\] Client #(\d+) \([\d\.]+\) joined as (.+)", packet.message) # client id (ip) joined as name
+            if matched is not None:
+                print("player joined")
+                # player joined
+                self.users[int(matched.group(1))] = matched.group(2)
+                await self.webhook.send(f"{matched.group(2)} joined the server.", username = "Server")
+                
+                return
+            
+            matched = re.fullmatch(r"\[server\] Client #(\d+) closed connection", packet.message) # client id closed connection
+            if matched is not None:
+                print("player left")
+                # player left
+                try:
+                    name = self.users.pop(int(matched.group(1)))
+                    await self.webhook.send(f"{name} left the server.", username = "Server")
+
+                except KeyError:
+                    print("player not found")
+                
+                return
     
     @commands.Cog.listener()
     async def on_ready(self):

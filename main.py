@@ -8,7 +8,7 @@ import discord
 
 from discord.ext import commands
 
-# missing contents
+# missing constants
 # DISCORD_API_TOKEN
 
 if not DISCORD_API_TOKEN:

@@ -101,3 +101,6 @@ class OpenTTD(commands.Cog):
     @commands.command()
     async def rcon(self, ctx, *, command: str):
         self.openttd.send_rcon(command)
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(OpenTTD(bot))

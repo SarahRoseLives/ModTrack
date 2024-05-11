@@ -28,6 +28,7 @@ discord_admin_role_id = int(config.get(section='Discord', option='discord_admin_
 channel_admin_request = int(config.get(section='Discord', option='channel_admin_request'))
 channel_chat_messages = int(config.get(section='Discord', option='channel_chat_messsages'))
 channel_bot_commands = int(config.get(section='Discord', option='channel_bot_commands'))
+channel_log_messages = int(config.get(section='Discord', option='channel_log_messages'))
 
 
 # Setup Discord bot
@@ -71,6 +72,11 @@ async def udp_rx():
                 channel = bot.get_channel(channel_admin_request)
                 thread = await channel.create_thread(name="example", type=ChannelType.public_thread)
                 await thread.send(data.decode().replace('REPORT_PACKET', f'<@&{discord_admin_role_id}>'))
+
+            # Identify Log Packet and print it to the channel
+            if data.decode().startswith('LOG_PACKET'):
+                channel = bot.get_channel(channel_log_messages)
+                await channel.send(data.decode().replace('LOG_PACKET', ''))
 
 
 

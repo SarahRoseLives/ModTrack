@@ -1,0 +1,12 @@
+[ModRail]
+
+[Discord]
+token =
+channel_id =
+bot_id_on_discord =
+discord_admin_role_id =
+
+channel_admin_request =
+channel_chat_messsages =
+channel_bot_commands =
+channel_log_messages =

@@ -70,6 +70,7 @@ def send_to_openttd_admin(message):
     except Exception as e:
         print(f"An error occurred while sending message to OpenTTD admin port: {e}")
 
+# Listener Thread, This is the main loop where we'll monitor for packets comming from OpenTTD
 def openTTD_listener_thread():
     try:
         with Admin(ip=SERVER, port=PORT, name=f"{BOT_NAME} Listener", password=PASSWORD) as admin:
@@ -88,6 +89,7 @@ class OpenTTDCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # Example command just to test in discord
     @commands.command(name='ping', hidden=False)
     async def ping(self, ctx):
         await ctx.send('Yes, I\'m Alive...')
@@ -103,6 +105,8 @@ async def on_ready():
     await channel.send(message)
     print(f'Successfully logged in and booted...!')
 
+# Discord Events, Allows us to do things like capture messages from a channel to send to OpenTTD
+# IE, Chat
 @bot.event
 async def on_message(message):
     if message.channel.id == channel_chat_messages:

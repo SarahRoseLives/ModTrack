@@ -25,7 +25,7 @@ BOT_PREFIX = config.get(section='ModTrack', option='BOT_PREFIX')
 
 # [OpenTTDAdmin] Config
 SERVER = config.get(section='OpenTTDAdmin', option='SERVER')
-PORT = config.get(section='OpenTTDAdmin', option='PORT')
+PORT = int(config.get(section='OpenTTDAdmin', option='PORT'))
 PASSWORD = config.get(section='OpenTTDAdmin', option='PASSWORD')
 
 # [Discord] Config

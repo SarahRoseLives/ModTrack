@@ -7,7 +7,6 @@ import re
 from config import *
 
 
-
 # Layout Dicts To Facilitate Running Information
 serverdetails_dict = {}
 user_details_dict = {}
@@ -83,10 +82,10 @@ def process_welcome_packet(packet):
 def process_user_packet(packet):
     global user_details_dict
 
-
-    join_pattern = r'\[server\] Client #(\d+) \(([\d\.]+)\) joined as ([\w\s#]+)'
+    print(packet.message)
+    join_pattern = r'\[server\] Client #(\d+) \(([\d\.]+)\) joined as ([^\n]+)'
     leave_pattern = r'\[server\] Client #(\d+) closed connection'
-    name_change_pattern = r'\*\*\* ([\w\s#]+) has changed their name to ([\w\s#]+)'
+    name_change_pattern = r'\*\*\* ([^\n]+) has changed their name to ([^\n]+)'
 
     # Join Match
     join_match = re.search(join_pattern, packet.message)
@@ -159,6 +158,7 @@ def process_rcon_packet(packet):
     asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_BOT_COMMANDS,
                                                             message=packet.response),
                                      bot.loop)
+
 # Retrieves data from the user client dict and allows us to grab users name id or ip
 def get_client_info(client_id, key):
     global user_details_dict

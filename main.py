@@ -3,6 +3,7 @@ from discord.ext import commands
 from pyopenttdadmin import Admin, AdminUpdateType, openttdpacket
 import threading
 import asyncio
+import re
 import configparser
 
 # Read config from file
@@ -29,15 +30,15 @@ PORT = int(config.get(section='OpenTTDAdmin', option='PORT'))
 PASSWORD = config.get(section='OpenTTDAdmin', option='PASSWORD')
 
 # [Discord] Config
-discordtoken = config.get(section='Discord', option='token')
-bot_id_on_discord = int(config.get(section='Discord', option='bot_id_on_discord'))
-discord_admin_role_id = int(config.get(section='Discord', option='discord_admin_role_id'))
+TOKEN = config.get(section='Discord', option='TOKEN')
+BOT_ID_ON_DISCORD = int(config.get(section='Discord', option='BOT_ID_ON_DISCORD'))
+DISCORD_ADMIN_ROLE_ID = int(config.get(section='Discord', option='DISCORD_ADMIN_ROLE_ID'))
 
 # Channel declarations
-channel_admin_request = int(config.get(section='Discord', option='channel_admin_request'))
-channel_chat_messages = int(config.get(section='Discord', option='channel_chat_messsages'))
-channel_bot_commands = int(config.get(section='Discord', option='channel_bot_commands'))
-channel_log_messages = int(config.get(section='Discord', option='channel_log_messages'))
+CHANNEL_ADMIN_REQUEST = int(config.get(section='Discord', option='CHANNEL_ADMIN_REQUEST'))
+CHANNEL_CHAT_MESSAGES = int(config.get(section='Discord', option='CHANNEL_CHAT_MESSAGES'))
+CHANNEL_BOT_COMMANDS = int(config.get(section='Discord', option='CHANNEL_BOT_COMMANDS'))
+CHANNEL_LOG_MESSAGES = int(config.get(section='Discord', option='CHANNEL_LOG_MESSAGES'))
 
 
 # Function to get prefix
@@ -76,16 +77,40 @@ def openTTD_listener_thread():
         with Admin(ip=SERVER, port=PORT, name=f"{BOT_NAME} Listener", password=PASSWORD) as admin:
             admin.send_subscribe(AdminUpdateType.CHAT)
             admin.send_subscribe(AdminUpdateType.CONSOLE)
+            admin.send_subscribe(AdminUpdateType.CLIENT_INFO)
+            #admin.send_subscribe(AdminUpdateType.COMPANY_INFO)
+            #admin.send_subscribe(AdminUpdateType.COMPANY_ECONOMY)
+            #admin.send_subscribe(AdminUpdateType.COMPANY_STATS)
             while True:
                 packets = admin.recv()
                 for packet in packets:
+
+                    # Capture Chat Packets from OpenTTD
                     if isinstance(packet, openttdpacket.ChatPacket):
-                        print(f'ID: {packet.id} Message: {packet.message}')
-                        asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=channel_chat_messages, message=packet.message, ), bot.loop)
+
+                        # If BOT_PREFIX is start of string it's a command
+                        if packet.message.startswith(BOT_PREFIX):
+                            # Report/admin command, sends user report over to bot.py for processing on discord.
+                            packet.message = packet.message.replace(BOT_PREFIX, '') # remove the command symbol
+
+                            if packet.message.startswith(('report', 'admin')):
+                                # Define the regex pattern to remove command from message
+                                pattern = r'^(?:!help|!admin)\s*'
+                                message = re.sub(pattern, '', packet.message)
+                                asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_ADMIN_REQUEST, message=f"<@&{DISCORD_ADMIN_ROLE_ID}> ID: {packet.id} Message: {message}", ), bot.loop)
+                        else:
+                            # Send chat message to discord
+                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_CHAT_MESSAGES, message=packet.message, ), bot.loop)
+
+
+                        # Capture console packets
                     if isinstance(packet, openttdpacket.ConsolePacket):
                         if LOG_CONSOLE_TO_DISCORD == 'enabled':
-                            print(packet)
-                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=channel_log_messages, message=packet.message, ), bot.loop)
+                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_LOG_MESSAGES, message=packet.message, ), bot.loop)
+
+                        # Print Stuff
+                    if isinstance(packet, openttdpacket.ClientInfoPacket):
+                        print(f'Client Info Packet:  {packet}')
 
 
     except Exception as e:
@@ -100,7 +125,7 @@ class OpenTTDCog(commands.Cog):
     @commands.command(name='ping', hidden=False)
     async def ping(self, ctx):
         # Only run command if it's in the channel we want.
-        if ctx.channel.id == channel_bot_commands:
+        if ctx.channel.id == CHANNEL_BOT_COMMANDS:
             await ctx.send('Yes, I\'m Alive...')
 
 # Load cog
@@ -110,7 +135,7 @@ async def on_ready():
     print(f'\n\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
 
     message = 'Bot Connected'
-    channel = bot.get_channel(channel_log_messages)
+    channel = bot.get_channel(CHANNEL_LOG_MESSAGES)
     await channel.send(message)
     print(f'Successfully logged in and booted...!')
 
@@ -119,9 +144,9 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     # IF the channel of the message matches our channel ID, we'll continue.
-    if message.channel.id == channel_chat_messages:
+    if message.channel.id == CHANNEL_CHAT_MESSAGES:
         # We don't want to echo what our bot says, let's ensure we ignore messages posted by ourselves
-        if bot_id_on_discord != message.author.id:
+        if BOT_ID_ON_DISCORD != message.author.id:
             send_to_openttd_admin(f"[Discord] {message.author}: {message.content}")
 
     await bot.process_commands(message)
@@ -133,4 +158,4 @@ openTTD_thread.daemon = True
 openTTD_thread.start()
 
 # Start Discord bot
-bot.run(discordtoken, reconnect=True)
+bot.run(TOKEN, reconnect=True)

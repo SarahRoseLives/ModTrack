@@ -64,10 +64,13 @@ async def send_to_discord_channel(channel_id, message):
         print(f"Channel with ID {channel_id} not found.")
 
 # Function to send message to OpenTTD admin port
-def send_to_openttd_admin(message):
+def send_to_openttd_admin(message, send_type):
     try:
         with Admin(ip=SERVER, port=PORT, name=f"{BOT_NAME} Sender", password=PASSWORD) as admin:
-            admin.send_global(message)
+            if send_type == 'global':
+                admin.send_global(message)
+            if send_type == 'rcon':
+                admin.send_rcon(message)
     except Exception as e:
         print(f"An error occurred while sending message to OpenTTD admin port: {e}")
 
@@ -112,6 +115,11 @@ def openTTD_listener_thread():
                     if isinstance(packet, openttdpacket.ClientInfoPacket):
                         print(f'Client Info Packet:  {packet}')
 
+                    if isinstance(packet, openttdpacket.RconPacket):
+                        print(f'Rcon Packet: {packet}')
+                        asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_BOT_COMMANDS, message=packet.message, ), bot.loop)
+
+
 
     except Exception as e:
         print(f"An error occurred in openTTD_listener: {e}")
@@ -127,6 +135,13 @@ class OpenTTDCog(commands.Cog):
         # Only run command if it's in the channel we want.
         if ctx.channel.id == CHANNEL_BOT_COMMANDS:
             await ctx.send('Yes, I\'m Alive...')
+
+    @commands.command(name='rcon', hidden=False)
+    async def rcon(self, ctx, message):
+        # Only run command in the channel we want
+        if ctx.channel.id == CHANNEL_BOT_COMMANDS:
+            # Sends an rcon command, any rcon recieved will be sent to the designated channel in the OpenTTD recieve loop
+            send_to_openttd_admin(message=message, send_type='rcon')
 
 # Load cog
 @bot.event
@@ -147,7 +162,7 @@ async def on_message(message):
     if message.channel.id == CHANNEL_CHAT_MESSAGES:
         # We don't want to echo what our bot says, let's ensure we ignore messages posted by ourselves
         if BOT_ID_ON_DISCORD != message.author.id:
-            send_to_openttd_admin(f"[Discord] {message.author}: {message.content}")
+            send_to_openttd_admin(message=f"[Discord] {message.author}: {message.content}", send_type='global')
 
     await bot.process_commands(message)
 

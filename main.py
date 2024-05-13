@@ -40,6 +40,8 @@ CHANNEL_CHAT_MESSAGES = int(config.get(section='Discord', option='CHANNEL_CHAT_M
 CHANNEL_BOT_COMMANDS = int(config.get(section='Discord', option='CHANNEL_BOT_COMMANDS'))
 CHANNEL_LOG_MESSAGES = int(config.get(section='Discord', option='CHANNEL_LOG_MESSAGES'))
 
+# Layout Dicts To Facilitate Running Information
+serverdetails_dict = {}
 
 # Function to get prefix
 def get_prefix(bot, message):
@@ -74,55 +76,98 @@ def send_to_openttd_admin(message, send_type):
     except Exception as e:
         print(f"An error occurred while sending message to OpenTTD admin port: {e}")
 
-# Listener Thread, This is the main loop where we'll monitor for packets comming from OpenTTD
+def process_welcome_packet(packet):
+    global serverdetails_dict  # Declare that we're going to modify the global variable
+
+    # Create a new dictionary to store packet data with specific keys
+    packet_data = {
+        'server_name': packet.server_name,
+        'version': packet.version,
+        'map_name': packet.map_name,
+        'seed': packet.seed,
+        'mapwidth': packet.mapwidth,
+        'mapheight': packet.mapheight,
+        'startdate': packet.startdate,
+        'landscape': packet.landscape
+    }
+
+    # Add the packet data to the serverdetails_dict
+    for key, value in packet_data.items():
+        if key not in serverdetails_dict:
+            serverdetails_dict[key] = [value]
+        else:
+            serverdetails_dict[key].append(value)
+
+    asyncio.run_coroutine_threadsafe(
+        send_to_discord_channel(
+            channel_id=CHANNEL_LOG_MESSAGES,
+            message=packet.server_name
+        ),
+        bot.loop
+    )
+    
+def process_chat_packet(packet):
+    if packet.message.startswith(BOT_PREFIX):
+        # Report/admin command, sends user report over to bot.py for processing on discord.
+        packet.message = packet.message.replace(BOT_PREFIX, '')  # remove the command symbol
+
+        if packet.message.startswith(('report', 'admin')):
+            # Define the regex pattern to remove command from message
+            pattern = r'^(?:!help|!admin)\s*'
+            message = re.sub(pattern, '', packet.message)
+            asyncio.run_coroutine_threadsafe(
+                send_to_discord_channel(channel_id=CHANNEL_ADMIN_REQUEST,
+                                        message=f"<@&{DISCORD_ADMIN_ROLE_ID}> ID: {packet.id} Message: {message}"),
+                bot.loop)
+    else:
+        # Send chat message to discord
+        asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_CHAT_MESSAGES,
+                                                                message=packet.message),
+                                         bot.loop)
+
+def process_console_packet(packet):
+    if LOG_CONSOLE_TO_DISCORD == 'enabled':
+        asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_LOG_MESSAGES,
+                                                                message=packet.message),
+                                         bot.loop)
+
+def process_rcon_packet(packet):
+    print(f'Rcon Packet: {packet}')
+    asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_BOT_COMMANDS,
+                                                            message=packet.message),
+                                     bot.loop)
+
 def openTTD_listener_thread():
     try:
         with Admin(ip=SERVER, port=PORT, name=f"{BOT_NAME} Listener", password=PASSWORD) as admin:
             admin.send_subscribe(AdminUpdateType.CHAT)
             admin.send_subscribe(AdminUpdateType.CONSOLE)
             admin.send_subscribe(AdminUpdateType.CLIENT_INFO)
-            #admin.send_subscribe(AdminUpdateType.COMPANY_INFO)
-            #admin.send_subscribe(AdminUpdateType.COMPANY_ECONOMY)
-            #admin.send_subscribe(AdminUpdateType.COMPANY_STATS)
+
             while True:
                 packets = admin.recv()
                 for packet in packets:
-
+                    # Capture Welcome Packets from OpenTTD
+                    if isinstance(packet, openttdpacket.WelcomePacket):
+                        process_welcome_packet(packet)
                     # Capture Chat Packets from OpenTTD
                     if isinstance(packet, openttdpacket.ChatPacket):
+                        process_chat_packet(packet)
 
-                        # If BOT_PREFIX is start of string it's a command
-                        if packet.message.startswith(BOT_PREFIX):
-                            # Report/admin command, sends user report over to bot.py for processing on discord.
-                            packet.message = packet.message.replace(BOT_PREFIX, '') # remove the command symbol
+                    # Capture console packets
+                    elif isinstance(packet, openttdpacket.ConsolePacket):
+                        process_console_packet(packet)
 
-                            if packet.message.startswith(('report', 'admin')):
-                                # Define the regex pattern to remove command from message
-                                pattern = r'^(?:!help|!admin)\s*'
-                                message = re.sub(pattern, '', packet.message)
-                                asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_ADMIN_REQUEST, message=f"<@&{DISCORD_ADMIN_ROLE_ID}> ID: {packet.id} Message: {message}", ), bot.loop)
-                        else:
-                            # Send chat message to discord
-                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_CHAT_MESSAGES, message=packet.message, ), bot.loop)
+                    # Capture Rcon packets
+                    elif isinstance(packet, openttdpacket.RconPacket):
+                        process_rcon_packet(packet)
 
-
-                        # Capture console packets
-                    if isinstance(packet, openttdpacket.ConsolePacket):
-                        if LOG_CONSOLE_TO_DISCORD == 'enabled':
-                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_LOG_MESSAGES, message=packet.message, ), bot.loop)
-
-                        # Print Stuff
-                    if isinstance(packet, openttdpacket.ClientInfoPacket):
-                        print(f'Client Info Packet:  {packet}')
-
-                    if isinstance(packet, openttdpacket.RconPacket):
-                        print(f'Rcon Packet: {packet}')
-                        asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=CHANNEL_BOT_COMMANDS, message=packet.message, ), bot.loop)
-
-
+                    # Add more packet processing functions for other packet types if needed
 
     except Exception as e:
-        print(f"An error occurred in openTTD_listener: {e}")
+        # Handle exceptions gracefully
+        print(f"An error occurred: {e}")
+
 
 # Define cog and command
 class OpenTTDCog(commands.Cog):
@@ -149,7 +194,9 @@ async def on_ready():
     await bot.add_cog(OpenTTDCog(bot))
     print(f'\n\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
 
-    message = 'Bot Connected'
+    server_name = serverdetails_dict['server_name'][0]
+    server_version = serverdetails_dict['version'][0]
+    message = f"{BOT_NAME} With Command Prefix {BOT_PREFIX} has connected to {server_name} version {server_version}"
     channel = bot.get_channel(CHANNEL_LOG_MESSAGES)
     await channel.send(message)
     print(f'Successfully logged in and booted...!')

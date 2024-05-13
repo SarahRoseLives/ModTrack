@@ -92,7 +92,9 @@ class OpenTTDCog(commands.Cog):
     # Example command just to test in discord
     @commands.command(name='ping', hidden=False)
     async def ping(self, ctx):
-        await ctx.send('Yes, I\'m Alive...')
+        # Only run command if it's in the channel we want.
+        if ctx.channel.id == channel_bot_commands:
+            await ctx.send('Yes, I\'m Alive...')
 
 # Load cog
 @bot.event
@@ -109,9 +111,11 @@ async def on_ready():
 # IE, Chat
 @bot.event
 async def on_message(message):
+    # IF the channel of the message matches our channel ID, we'll continue.
     if message.channel.id == channel_chat_messages:
+        # We don't want to echo what our bot says, let's ensure we ignore messages posted by ourselves
         if bot_id_on_discord != message.author.id:
-            send_to_openttd_admin(f"[Discord] {message.content}")
+            send_to_openttd_admin(f"[Discord] {message.author}: {message.content}")
 
     await bot.process_commands(message)
 

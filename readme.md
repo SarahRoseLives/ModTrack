@@ -19,14 +19,22 @@ https://discord.gg/jMadvcGwKu
 
 - A basic chat bridge which we can tie to specific channels
 - An !admin / !report command that allows in-game players to ping a discord admin for help or reports.
+- Change prefix with simnple txt config file
+- Maintain list of users connected and their username / name changes
+
 
 ## Features Planned
 
 - Vote Kick and Vote Ban
 - Connect multiple OpenTTD servers
 - Query company statistics
+- RCon support
+- Track company names, stats and more
 - Link discord users or roles to in-game players? Maybe equate play time or in-game money to discord points?
 
+## Commands
+
+- !clients - Grabs client list from our dict of online players (rcon within discord is planned)
 
 ## Dependencies
 

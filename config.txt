@@ -1,12 +1,22 @@
-[ModRail]
+[ModTrack]
+BOT_NAME = ModTrack
+BOT_DESCRIPTION = ModTrack, A Moderation Bot to keep your OpenTTD servers on Track!
+BOT_PREFIX = !
+LOG_CONSOLE_TO_DISCORD = disable
+
+[OpenTTDAdmin]
+SERVER = 127.0.0.1
+PORT = 3977
+PASSWORD = toor
 
 [Discord]
-token =
+TOKEN =
 channel_id =
-bot_id_on_discord =
-discord_admin_role_id =
+BOT_ID_ON_DISCORD =
+DISCORD_ADMIN_ROLE_ID =
 
-channel_admin_request =
-channel_chat_messsages =
-channel_bot_commands =
-channel_log_messages =
+CHANNEL_ADMIN_REQUEST =
+CHANNEL_CHAT_MESSAGES =
+CHANNEL_BOT_COMMANDS =
+CHANNEL_LOG_MESSAGES =
+

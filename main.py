@@ -20,7 +20,7 @@ config = load_config()
 BOT_NAME = config.get(section='ModTrack', option='BOT_NAME')
 BOT_DESCRIPTION = config.get(section='ModTrack', option='BOT_DESCRIPTION')
 BOT_PREFIX = config.get(section='ModTrack', option='BOT_PREFIX')
-
+LOG_CONSOLE_TO_DISCORD = config.get(section='ModTrack', option='LOG_CONSOLE_TO_DISCORD')
 
 
 # [OpenTTDAdmin] Config
@@ -75,12 +75,19 @@ def openTTD_listener_thread():
     try:
         with Admin(ip=SERVER, port=PORT, name=f"{BOT_NAME} Listener", password=PASSWORD) as admin:
             admin.send_subscribe(AdminUpdateType.CHAT)
+            admin.send_subscribe(AdminUpdateType.CONSOLE)
             while True:
                 packets = admin.recv()
                 for packet in packets:
                     if isinstance(packet, openttdpacket.ChatPacket):
                         print(f'ID: {packet.id} Message: {packet.message}')
                         asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=channel_chat_messages, message=packet.message, ), bot.loop)
+                    if isinstance(packet, openttdpacket.ConsolePacket):
+                        if LOG_CONSOLE_TO_DISCORD == 'enabled':
+                            print(packet)
+                            asyncio.run_coroutine_threadsafe(send_to_discord_channel(channel_id=channel_log_messages, message=packet.message, ), bot.loop)
+
+
     except Exception as e:
         print(f"An error occurred in openTTD_listener: {e}")
 

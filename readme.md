@@ -35,6 +35,7 @@ https://discord.gg/jMadvcGwKu
 ## Commands
 
 - !clients - Grabs client list from our dict of online players (rcon within discord is planned)
+- !admin/report - Allows you to ping a Discord server admin for assistance in-game
 
 ## Dependencies
 
